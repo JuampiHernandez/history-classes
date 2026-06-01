@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateImage, generateText } from "ai";
+import { generateImage, generateText, gateway } from "ai";
 
 /** Keyless Pollinations URL used when no paid provider is configured or all fail. */
 export function pollinationsBoardImageUrl(prompt: string): string {
@@ -11,11 +11,15 @@ export function pollinationsBoardImageUrl(prompt: string): string {
 }
 
 export type BoardImageProvider =
+  | "gateway-imagen"
   | "gateway-gemini"
   | "openai"
   | "gemini-direct"
   | "pollinations";
 
+/** Dedicated image model — best for labeled educational diagrams via AI Gateway. */
+const GATEWAY_IMAGEN_MODEL = "google/imagen-4.0-generate-001";
+/** Multimodal fallback when Imagen is unavailable. */
 const GATEWAY_GEMINI_MODEL = "google/gemini-3.1-flash-image-preview";
 const OPENAI_IMAGE_MODEL = "gpt-image-1";
 
@@ -23,9 +27,21 @@ function boardImagePrompt(prompt: string): string {
   return `Create a single educational illustration for a tutoring whiteboard: ${prompt}. Style: clean textbook diagram on plain white background, clearly labeled parts, crisp lines, accurate historical or scientific detail where relevant, no watermark.`;
 }
 
-/** True on Vercel production deploys — use AI Gateway + Gemini there. */
+function gatewayBoardOptions() {
+  return {
+    gateway: {
+      tags: ["feature:whiteboard", "app:history-classes"],
+      models: [GATEWAY_GEMINI_MODEL, "openai/gpt-image-1"],
+    },
+  };
+}
+
+/** True on Vercel (preview + production) or when gateway auth is configured locally. */
 export function shouldUseGatewayForBoardImages(): boolean {
-  return process.env.VERCEL_ENV === "production";
+  if (process.env.VERCEL) return true;
+  return Boolean(
+    process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN,
+  );
 }
 
 function fileToDataUrl(file: {
@@ -42,16 +58,28 @@ function fileToDataUrl(file: {
   return null;
 }
 
-/**
- * Production: Gemini image via Vercel AI Gateway (OIDC on Vercel, or
- * AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN from `vercel env pull` locally).
- */
-export async function generateBoardImageWithGateway(
+async function generateBoardImageWithGatewayImagen(
+  prompt: string,
+): Promise<{ imageUrl: string; provider: "gateway-imagen" }> {
+  const { image } = await generateImage({
+    model: gateway.image(GATEWAY_IMAGEN_MODEL),
+    prompt: boardImagePrompt(prompt),
+    aspectRatio: "1:1",
+    providerOptions: gatewayBoardOptions(),
+  });
+
+  const url = fileToDataUrl(image);
+  if (!url) throw new Error("AI Gateway (Imagen) returned no image data");
+  return { imageUrl: url, provider: "gateway-imagen" };
+}
+
+async function generateBoardImageWithGatewayGemini(
   prompt: string,
 ): Promise<{ imageUrl: string; provider: "gateway-gemini" }> {
   const result = await generateText({
-    model: GATEWAY_GEMINI_MODEL,
+    model: gateway(GATEWAY_GEMINI_MODEL),
     prompt: boardImagePrompt(prompt),
+    providerOptions: gatewayBoardOptions(),
   });
 
   const imageFiles = result.files.filter((f) =>
@@ -62,7 +90,22 @@ export async function generateBoardImageWithGateway(
     if (url) return { imageUrl: url, provider: "gateway-gemini" };
   }
 
-  throw new Error("AI Gateway returned no image file");
+  throw new Error("AI Gateway (Gemini) returned no image file");
+}
+
+/**
+ * Vercel AI Gateway: Imagen for diagrams, Gemini multimodal as fallback.
+ * Auth: OIDC on Vercel, or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN locally.
+ */
+export async function generateBoardImageWithGateway(
+  prompt: string,
+): Promise<{ imageUrl: string; provider: "gateway-imagen" | "gateway-gemini" }> {
+  try {
+    return await generateBoardImageWithGatewayImagen(prompt);
+  } catch (err) {
+    console.warn("[whiteboard] Imagen via AI Gateway failed, trying Gemini:", err);
+    return generateBoardImageWithGatewayGemini(prompt);
+  }
 }
 
 /** Local dev: OpenAI image generation with OPENAI_API_KEY (direct, not gateway). */
@@ -151,7 +194,7 @@ export async function generateBoardImageWithGeminiDirect(
   throw new Error("Gemini returned no image data");
 }
 
-/** Pick provider: gateway+Gemini in production, OpenAI in dev, then fallbacks. */
+/** Pick provider: gateway on Vercel, OpenAI in dev, then direct Gemini. */
 export async function generateBoardImage(
   prompt: string,
 ): Promise<{ imageUrl: string; provider: BoardImageProvider }> {
@@ -168,6 +211,6 @@ export async function generateBoardImage(
   }
 
   throw new Error(
-    "No image provider configured (OPENAI_API_KEY for dev, or AI Gateway on production)",
+    "No image provider configured (OPENAI_API_KEY for dev, or AI Gateway on Vercel)",
   );
 }
