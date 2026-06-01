@@ -4,6 +4,19 @@ import { didLog, formatDidError } from "@/lib/did-errors";
 import { uploadFigureAvatar } from "@/lib/did-upload";
 
 const DID_API = "https://api.d-id.com";
+const DID_OUTPUT_RESOLUTION = 1280;
+const DID_COMPATIBILITY_MODE = "off"; // Prefer H264 where supported.
+const DID_TALK_CONFIG = {
+  stitch: true,
+  fluent: true,
+  pad_audio: 0.2,
+} as const;
+const ELEVENLABS_VOICE_CONFIG = {
+  stability: 0.65,
+  similarity_boost: 0.85,
+  use_speaker_boost: true,
+  apply_text_normalization: "auto",
+} as const;
 
 function elevenExternalHeader() {
   const key = process.env.ELEVENLABS_API_KEY;
@@ -91,6 +104,9 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               source_url: resolvedSource,
               stream_warmup: true,
+              compatibility_mode: DID_COMPATIBILITY_MODE,
+              output_resolution: DID_OUTPUT_RESOLUTION,
+              config: { stitch: true },
             }),
           },
           action,
@@ -158,9 +174,11 @@ export async function POST(req: NextRequest) {
                 provider: {
                   type: "elevenlabs",
                   voice_id: voiceId,
+                  voice_config: ELEVENLABS_VOICE_CONFIG,
                 },
               },
-              config: { stitch: true },
+              config: DID_TALK_CONFIG,
+              audio_optimization: 2,
             }),
           },
           action,

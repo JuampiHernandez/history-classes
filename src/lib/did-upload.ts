@@ -7,14 +7,12 @@ import { didLog, formatDidError } from "@/lib/did-errors";
 const DID_API = "https://api.d-id.com";
 
 /**
- * Avatar source PNGs are ~2MB at 1536x1024. Uploading and having D-ID run face
- * detection on a file that large is the dominant cost of starting a session
- * (~12s observed). D-ID only needs a clear frontal face, so downscale to a
- * modest width and re-encode as JPEG before uploading — this shrinks the file
- * ~50x and cuts upload + processing time dramatically.
+ * Avatar source PNGs are ~2MB at 1536x1024. D-ID's lip sync depends heavily on
+ * mouth and facial detail, so keep the upload close to the highest streamed
+ * output resolution instead of heavily downscaling the face.
  */
-const UPLOAD_MAX_WIDTH = 720;
-const UPLOAD_JPEG_QUALITY = 85;
+const UPLOAD_MAX_WIDTH = 1280;
+const UPLOAD_JPEG_QUALITY = 94;
 
 /**
  * D-ID stores uploaded images and returns a stable, reusable URL. Re-uploading
