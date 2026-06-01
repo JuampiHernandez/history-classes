@@ -26,7 +26,7 @@ function BoardImage({
   if (state === "error") return null;
 
   return (
-    <div className="relative mt-4 flex min-h-0 flex-1 items-center justify-center">
+    <div className="relative mt-4 flex min-h-0 flex-1 items-center justify-center overflow-hidden">
       {state === "loading" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/[0.03]">
           <div
@@ -42,7 +42,7 @@ function BoardImage({
         alt={alt}
         onLoad={() => setState("ready")}
         onError={() => setState("error")}
-        className={`max-h-full max-w-full rounded-xl bg-white object-contain transition-opacity duration-500 ${
+        className={`h-full max-h-full max-w-full rounded-xl bg-white object-contain transition-opacity duration-500 ${
           state === "ready" ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -146,7 +146,7 @@ export function Whiteboard({
       </div>
 
       {/* Canvas */}
-      <div className="relative flex flex-1 flex-col overflow-hidden p-6">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-6">
         <div
           className="flex flex-1 flex-col origin-top-left transition-transform"
           style={{ transform: `scale(${zoom / 100})` }}
@@ -172,7 +172,7 @@ export function Whiteboard({
           )}
 
           {board && (
-            <div key={board.id} className="animate-float-in flex flex-1 flex-col">
+            <div key={board.id} className="animate-float-in flex min-h-0 flex-1 flex-col">
               <h3 className="font-display text-xl font-semibold leading-snug text-gold">
                 {board.title}
               </h3>

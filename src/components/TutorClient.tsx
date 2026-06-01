@@ -36,6 +36,8 @@ function SessionInner({ figure }: { figure: Figure }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const didRef = useRef<DidStreamClient | null>(null);
   const sessionLiveRef = useRef(false);
+  const startingRef = useRef(false);
+  const startSeqRef = useRef(0);
   const seenMessageEventsRef = useRef(new Set<string>());
 
   const [phase, setPhase] = useState<Phase>("intro");
@@ -43,11 +45,12 @@ function SessionInner({ figure }: { figure: Figure }) {
   const [statusText, setStatusText] = useState("Bringing the avatar to life…");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
   const [interruptFlash, setInterruptFlash] = useState(false);
   const [hasAvatarVideo, setHasAvatarVideo] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [board, setBoard] = useState<BoardContent | null>(null);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(true);
   const [micOverride, setMicOverride] = useState<
     "none" | "user-muted" | "user-unmuted"
   >("none");
@@ -153,6 +156,11 @@ function SessionInner({ figure }: { figure: Figure }) {
       }
     },
   });
+  const conversationRef = useRef(conversation);
+
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -161,6 +169,7 @@ function SessionInner({ figure }: { figure: Figure }) {
   const startElevenLabs = useCallback(
     (conversationToken: string) =>
       new Promise<void>((resolve, reject) => {
+        let settled = false;
         conversation.startSession({
           conversationToken,
           connectionType: "webrtc",
@@ -172,10 +181,21 @@ function SessionInner({ figure }: { figure: Figure }) {
           onConnect: () => {
             conversation.setVolume({ volume: CONVAI_MONITOR_VOLUME });
             quietConvaiAudioElements();
-            resolve();
+            if (!settled) {
+              settled = true;
+              resolve();
+            }
           },
-          onError: (msg) =>
-            reject(new Error(typeof msg === "string" ? msg : "Voice connect failed")),
+          onError: (msg) => {
+            if (!settled) {
+              settled = true;
+              reject(
+                new Error(
+                  typeof msg === "string" ? msg : "Voice connect failed",
+                ),
+              );
+            }
+          },
         });
       }),
     [conversation, showOnBoard],
@@ -183,6 +203,11 @@ function SessionInner({ figure }: { figure: Figure }) {
 
   const start = useCallback(async () => {
     if (!videoRef.current) return;
+    if (startingRef.current || phase === "connecting" || phase === "live") return;
+
+    startingRef.current = true;
+    const startSeq = startSeqRef.current + 1;
+    startSeqRef.current = startSeq;
     videoRef.current.muted = false;
     setPhase("connecting");
     setErrorMsg(null);
@@ -194,6 +219,9 @@ function SessionInner({ figure }: { figure: Figure }) {
     setTranscript([]);
     setBoard(null);
     setElapsed(0);
+    const t0 = performance.now();
+    const lap = (label: string) =>
+      console.info(`[connect] ${label}: +${Math.round(performance.now() - t0)}ms`);
     try {
       setStatusText("Starting lip-sync avatar…");
       const did = new DidStreamClient(videoRef.current, {
@@ -201,32 +229,70 @@ function SessionInner({ figure }: { figure: Figure }) {
         onStreamEvent: (event) => {
           if (event.includes("stream/started")) {
             setHasAvatarVideo(true);
+            lap("avatar stream/started");
           }
         },
       });
       didRef.current = did;
+
+      // Fetch the ElevenLabs conversation token in parallel with the avatar
+      // connection — they are independent, so there's no reason to wait for
+      // the avatar to finish before requesting the agent/mic token.
+      const agentPromise = (async () => {
+        const res = await fetch("/api/elevenlabs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ figureId: figure.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Failed to start agent");
+        lap("elevenlabs token ready");
+        return data as { conversationToken: string };
+      })();
+      // Avoid an unhandled rejection if the avatar connect throws first.
+      agentPromise.catch(() => {});
+
       await did.connect(figure.id);
+      if (startSeqRef.current !== startSeq) {
+        await did.destroy();
+        return;
+      }
+      lap("avatar connected");
 
       setStatusText("Connecting your microphone…");
-      const res = await fetch("/api/elevenlabs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ figureId: figure.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Failed to start agent");
+      const data = await agentPromise;
+      if (startSeqRef.current !== startSeq) {
+        await did.destroy();
+        return;
+      }
 
       sessionLiveRef.current = true;
       await startElevenLabs(data.conversationToken);
+      if (startSeqRef.current !== startSeq) {
+        await conversation.endSession();
+        await did.destroy();
+        return;
+      }
+      lap("microphone connected (live)");
       setPhase("live");
     } catch (err) {
-      sessionLiveRef.current = false;
-      setErrorMsg(err instanceof Error ? err.message : "Failed to start");
-      setPhase("error");
+      if (startSeqRef.current === startSeq) {
+        sessionLiveRef.current = false;
+        setErrorMsg(err instanceof Error ? err.message : "Failed to start");
+        setPhase("error");
+        await didRef.current?.destroy();
+        didRef.current = null;
+      }
+    } finally {
+      if (startSeqRef.current === startSeq) {
+        startingRef.current = false;
+      }
     }
-  }, [figure, startElevenLabs]);
+  }, [conversation, figure, phase, startElevenLabs]);
 
   const end = useCallback(async () => {
+    startSeqRef.current += 1;
+    startingRef.current = false;
     sessionLiveRef.current = false;
     seenMessageEventsRef.current.clear();
     setMicOverride("none");
@@ -245,17 +311,19 @@ function SessionInner({ figure }: { figure: Figure }) {
   useEffect(() => {
     const seenMessageEvents = seenMessageEventsRef.current;
     return () => {
+      startSeqRef.current += 1;
+      startingRef.current = false;
       sessionLiveRef.current = false;
       seenMessageEvents.clear();
       try {
-        conversation.endSession();
+        conversationRef.current.endSession();
       } catch {
         /* ignore */
       }
       void didRef.current?.destroy();
       didRef.current = null;
     };
-  }, [conversation]);
+  }, []);
 
   const isLive = phase === "live";
   const avatarReady =
@@ -293,9 +361,6 @@ function SessionInner({ figure }: { figure: Figure }) {
         conversation.setMuted(false);
       } catch {
         /* session may already be ended */
-      }
-      if (micOverride === "user-unmuted") {
-        setMicOverride("none");
       }
     }
   }, [agentSpeaking, didStatus, isLive, conversation, micOverride]);
@@ -375,7 +440,7 @@ function SessionInner({ figure }: { figure: Figure }) {
           <Link
             href="/"
             onClick={() => void end()}
-            className="inline-flex items-center gap-2 rounded-full border border-red-400/40 px-4 py-1.5 text-sm font-medium text-red-300 transition hover:bg-red-500/10"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-1.5 text-sm font-medium text-ivory/60 transition hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-200"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
@@ -386,10 +451,14 @@ function SessionInner({ figure }: { figure: Figure }) {
       </header>
 
       {/* Stage */}
-      <div className="mt-4 grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_1.12fr]">
+      <div
+        className={`mt-4 grid flex-1 grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 lg:h-[min(62vh,680px)] lg:min-h-[420px] ${
+          whiteboardOpen ? "lg:grid-cols-2" : "lg:grid-cols-[1fr_auto]"
+        }`}
+      >
         {/* Avatar */}
         <div
-          className={`relative min-h-[420px] overflow-hidden rounded-3xl border bg-black transition-colors duration-300 ${
+          className={`relative min-h-[420px] overflow-hidden rounded-3xl border bg-black transition-colors duration-300 lg:h-full ${
             agentSpeaking
               ? "border-white/25"
               : userSpeaking
@@ -479,6 +548,9 @@ function SessionInner({ figure }: { figure: Figure }) {
                     style={{ borderTopColor: "var(--gold)" }}
                   />
                   <p className="text-sm text-ivory/70">{statusText}</p>
+                  <p className="text-xs text-ivory/45">
+                    This can take up to 2 minutes.
+                  </p>
                 </div>
               )}
               {phase === "ended" && (
@@ -511,19 +583,7 @@ function SessionInner({ figure }: { figure: Figure }) {
 
           {/* Live controls */}
           {isLive && (
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5">
-              <button
-                type="button"
-                onClick={handleMicToggle}
-                className={`rounded-full border px-4 py-2 text-sm font-medium backdrop-blur transition ${
-                  conversation.isMuted
-                    ? "border-red-400/50 bg-red-500/15 text-red-200"
-                    : "border-white/15 bg-black/40 text-ivory/80 hover:bg-black/60"
-                }`}
-              >
-                {conversation.isMuted ? "Unmute" : "Mute"}
-              </button>
-
+            <div className="absolute inset-x-0 bottom-0 flex items-end justify-center gap-3 p-5">
               <div className="flex flex-col items-center gap-1.5">
                 <button
                   type="button"
@@ -557,9 +617,8 @@ function SessionInner({ figure }: { figure: Figure }) {
               <button
                 type="button"
                 onClick={end}
-                className="inline-flex items-center gap-2 rounded-full border border-red-400/50 bg-red-500/15 px-4 py-2 text-sm font-medium text-red-200 backdrop-blur transition hover:bg-red-500/25"
+                className="absolute right-5 bottom-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-medium text-ivory/55 backdrop-blur transition hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-200"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
                 End session
               </button>
             </div>
@@ -567,7 +626,59 @@ function SessionInner({ figure }: { figure: Figure }) {
         </div>
 
         {/* Whiteboard */}
-        <Whiteboard figure={figure} board={board} />
+        <div
+          className={`relative transition-all duration-300 ${
+            whiteboardOpen
+              ? "min-h-[320px] lg:min-w-0"
+              : "min-h-0 lg:w-14"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setWhiteboardOpen((open) => !open)}
+            className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-ivory/60 transition hover:text-ivory lg:hidden"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9M3 20h3M4 16.5 16.5 4a2.1 2.1 0 0 1 3 3L7 19.5l-4 1z" />
+            </svg>
+            {whiteboardOpen ? "Hide whiteboard" : "Show whiteboard"}
+          </button>
+          {whiteboardOpen ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setWhiteboardOpen(false)}
+                className="absolute -left-3 top-1/2 z-10 hidden h-11 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-obsidian/80 text-ivory/50 shadow-xl backdrop-blur transition hover:text-ivory lg:flex"
+                aria-label="Hide whiteboard"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+              <Whiteboard figure={figure} board={board} />
+            </>
+          ) : (
+            <>
+              <div className="hidden h-0 lg:block" />
+              <button
+                type="button"
+                onClick={() => setWhiteboardOpen(true)}
+                className="hidden h-full min-h-[420px] w-14 flex-col items-center justify-center gap-3 rounded-3xl border border-white/[0.08] bg-charcoal text-ivory/55 transition hover:border-gold/30 hover:text-gold lg:flex"
+                aria-label="Show whiteboard"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9M3 20h3M4 16.5 16.5 4a2.1 2.1 0 0 1 3 3L7 19.5l-4 1z" />
+                </svg>
+                <span className="rotate-180 [writing-mode:vertical-rl] text-xs font-semibold uppercase tracking-[0.18em]">
+                  Whiteboard
+                </span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Transcript bar + question input */}

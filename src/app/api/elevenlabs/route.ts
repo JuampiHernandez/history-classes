@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 import { getFigure } from "@/lib/figures";
 
 const EL_API = "https://api.elevenlabs.io/v1";
-const CACHE_FILE = path.join(process.cwd(), ".eleven-agents.json");
+const CACHE_FILE = path.join(
+  process.env.ELEVENLABS_AGENT_CACHE_DIR ??
+    (process.env.VERCEL ? os.tmpdir() : process.cwd()),
+  ".eleven-agents.json",
+);
 /** Bump when agent prompt / turn-taking config changes. */
 const AGENT_CACHE_VERSION = "v8-gender-voices";
 

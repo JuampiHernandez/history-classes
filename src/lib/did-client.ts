@@ -133,6 +133,12 @@ export class DidStreamClient {
   async connect(figureId: string): Promise<void> {
     this.setStatus("connecting");
 
+    const t0 = performance.now();
+    const lap = (label: string) =>
+      console.info(
+        `[did] ${label}: +${Math.round(performance.now() - t0)}ms`,
+      );
+
     const created = (await this.api({
       action: "create",
       figureId,
@@ -142,6 +148,7 @@ export class DidStreamClient {
       offer: RTCSessionDescriptionInit;
       ice_servers: RTCIceServer[];
     };
+    lap("stream created (upload + create)");
 
     this.streamId = created.id;
     this.sessionId = created.session_id;
@@ -199,8 +206,10 @@ export class DidStreamClient {
       sessionId: this.sessionId,
       answer: { type: answer.type, sdp: answer.sdp },
     });
+    lap("sdp negotiated");
 
     await this.waitForVideoReady();
+    lap("video ready");
   }
 
   async speak(text: string, voiceId: string): Promise<void> {
