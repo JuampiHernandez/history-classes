@@ -1,9 +1,20 @@
+export type SubjectIconId =
+  | "physics"
+  | "history"
+  | "biology"
+  | "literature"
+  | "logic";
+
 export type Figure = {
   id: string;
   name: string;
   fullName: string;
   era: string;
   subject: string;
+  /** Short discipline label used on cards (e.g. "Physics", "Logic & CS"). */
+  discipline: string;
+  /** Which crest-style icon to render for this tutor. */
+  icon: SubjectIconId;
   subjectTags: string[];
   tagline: string;
   greeting: string;
@@ -58,6 +69,8 @@ export const FIGURES: Figure[] = [
     fullName: "Dr. Sol Vega",
     era: "The Academy · Physics Wing",
     subject: "Physics & Mathematics",
+    discipline: "Physics",
+    icon: "physics",
     subjectTags: ["Relativity", "Calculus", "Mechanics", "Algebra"],
     tagline: "Makes the universe feel simple.",
     greeting:
@@ -75,6 +88,8 @@ export const FIGURES: Figure[] = [
     fullName: "Commander René Duval",
     era: "The Academy · War Room",
     subject: "History & Strategy",
+    discipline: "History",
+    icon: "history",
     subjectTags: ["French Revolution", "European History", "Strategy", "Leadership"],
     tagline: "Teaches history like a campaign briefing.",
     greeting:
@@ -92,6 +107,8 @@ export const FIGURES: Figure[] = [
     fullName: "Dr. Iris Finch",
     era: "The Academy · Greenhouse",
     subject: "Biology & Evolution",
+    discipline: "Biology",
+    icon: "biology",
     subjectTags: ["Evolution", "Natural Selection", "Genetics", "Ecology"],
     tagline: "Patient guide through life itself.",
     greeting:
@@ -109,6 +126,8 @@ export const FIGURES: Figure[] = [
     fullName: "Madame Clara Fairwright",
     era: "The Academy · Playhouse",
     subject: "Literature & Writing",
+    discipline: "Literature",
+    icon: "literature",
     subjectTags: ["Drama", "Poetry", "Rhetoric", "Essay Writing"],
     tagline: "Turns writing into theatre.",
     greeting:
@@ -126,6 +145,8 @@ export const FIGURES: Figure[] = [
     fullName: "Professor Sam Okonkwo",
     era: "The Academy · Cipher Hall",
     subject: "Computer Science & Logic",
+    discipline: "Logic & CS",
+    icon: "logic",
     subjectTags: ["Algorithms", "Logic", "Computation", "Cryptography"],
     tagline: "Decodes hard ideas, step by step.",
     greeting:

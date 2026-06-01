@@ -1,8 +1,14 @@
 import { formatDidError } from "@/lib/did-errors";
 
-type DidApi = (payload: Record<string, unknown>) => Promise<unknown>;
+type DidApi = (
+  payload: Record<string, unknown>,
+  options?: { silent?: boolean },
+) => Promise<unknown>;
 
-async function didApi(payload: Record<string, unknown>): Promise<unknown> {
+async function didApi(
+  payload: Record<string, unknown>,
+  options?: { silent?: boolean },
+): Promise<unknown> {
   const res = await fetch("/api/did", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -14,11 +20,13 @@ async function didApi(payload: Record<string, unknown>): Promise<unknown> {
       typeof data?.error === "string"
         ? data.error
         : formatDidError(data, res.status);
-    console.error("[did-client] request failed", {
-      action: payload.action,
-      status: res.status,
-      data,
-    });
+    if (!options?.silent) {
+      console.error("[did-client] request failed", {
+        action: payload.action,
+        status: res.status,
+        data,
+      });
+    }
     throw new Error(message);
   }
   return data;
@@ -233,11 +241,14 @@ export class DidStreamClient {
     this.videoReady = false;
     try {
       if (this.streamId && this.sessionId) {
-        await this.api({
-          action: "stop",
-          streamId: this.streamId,
-          sessionId: this.sessionId,
-        });
+        await this.api(
+          {
+            action: "stop",
+            streamId: this.streamId,
+            sessionId: this.sessionId,
+          },
+          { silent: true },
+        );
       }
     } catch {
       /* ignore */
