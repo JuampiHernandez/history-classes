@@ -60,7 +60,7 @@ export function BoardNote({ text }: { text: string }) {
     if (html) {
       return (
         <div
-          className="board-note-katex mt-4 overflow-x-auto text-neutral-800"
+          className="board-note-katex mt-4 overflow-x-auto"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       );
@@ -69,8 +69,8 @@ export function BoardNote({ text }: { text: string }) {
 
   return (
     <p
-      className="mt-4 whitespace-pre-wrap text-2xl font-medium leading-relaxed text-neutral-800"
-      style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
+      className="mt-4 whitespace-pre-wrap text-2xl font-medium leading-relaxed"
+      style={{ fontFamily: "var(--font-display), Georgia, serif" }}
     >
       <PlainNote text={text} />
     </p>

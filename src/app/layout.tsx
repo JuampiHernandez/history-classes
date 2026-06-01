@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Lora, Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const lora = Lora({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-ui",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Office Hours — The Academy",
+  title: "The Academy — Voice-first exam prep with legendary tutors",
   description:
-    "Pick a tutor at The Academy and learn face-to-face with live lip-sync avatars. Powered by D-ID and ElevenLabs conversational AI.",
+    "Tomorrow's exam. Legendary minds. Live lip-synced avatars, a real-time whiteboard, and one-to-one voice tutoring that adapts to you.",
 };
 
 export default function RootLayout({
@@ -26,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${lora.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

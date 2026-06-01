@@ -1,8 +1,14 @@
 import { formatDidError } from "@/lib/did-errors";
 
-type DidApi = (payload: Record<string, unknown>) => Promise<unknown>;
+type DidApi = (
+  payload: Record<string, unknown>,
+  options?: { silent?: boolean },
+) => Promise<unknown>;
 
-async function didApi(payload: Record<string, unknown>): Promise<unknown> {
+async function didApi(
+  payload: Record<string, unknown>,
+  options?: { silent?: boolean },
+): Promise<unknown> {
   const res = await fetch("/api/did", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -14,11 +20,13 @@ async function didApi(payload: Record<string, unknown>): Promise<unknown> {
       typeof data?.error === "string"
         ? data.error
         : formatDidError(data, res.status);
-    console.error("[did-client] request failed", {
-      action: payload.action,
-      status: res.status,
-      data,
-    });
+    if (!options?.silent) {
+      console.error("[did-client] request failed", {
+        action: payload.action,
+        status: res.status,
+        data,
+      });
+    }
     throw new Error(message);
   }
   return data;
@@ -125,6 +133,12 @@ export class DidStreamClient {
   async connect(figureId: string): Promise<void> {
     this.setStatus("connecting");
 
+    const t0 = performance.now();
+    const lap = (label: string) =>
+      console.info(
+        `[did] ${label}: +${Math.round(performance.now() - t0)}ms`,
+      );
+
     const created = (await this.api({
       action: "create",
       figureId,
@@ -134,6 +148,7 @@ export class DidStreamClient {
       offer: RTCSessionDescriptionInit;
       ice_servers: RTCIceServer[];
     };
+    lap("stream created (upload + create)");
 
     this.streamId = created.id;
     this.sessionId = created.session_id;
@@ -191,8 +206,10 @@ export class DidStreamClient {
       sessionId: this.sessionId,
       answer: { type: answer.type, sdp: answer.sdp },
     });
+    lap("sdp negotiated");
 
     await this.waitForVideoReady();
+    lap("video ready");
   }
 
   async speak(text: string, voiceId: string): Promise<void> {
@@ -233,11 +250,14 @@ export class DidStreamClient {
     this.videoReady = false;
     try {
       if (this.streamId && this.sessionId) {
-        await this.api({
-          action: "stop",
-          streamId: this.streamId,
-          sessionId: this.sessionId,
-        });
+        await this.api(
+          {
+            action: "stop",
+            streamId: this.streamId,
+            sessionId: this.sessionId,
+          },
+          { silent: true },
+        );
       }
     } catch {
       /* ignore */

@@ -1,6 +1,8 @@
-# Office Hours — historical AI tutors
+# The Academy — voice-first exam prep with legendary tutors
 
-Live voice tutoring with D-ID lip-sync avatars, ElevenLabs ConvAI agents, and an on-session whiteboard (KaTeX formulas + Gemini illustrations).
+Tomorrow's exam. Legendary minds. Live voice tutoring with D-ID lip-sync avatars, ElevenLabs ConvAI agents, and an on-session whiteboard (KaTeX formulas + Gemini illustrations).
+
+The brand system (logo, palette, typography, UI components) lives at the `/brand` route.
 
 ## Setup (manual steps)
 
