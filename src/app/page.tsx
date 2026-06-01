@@ -10,16 +10,15 @@ export default function Home() {
           Live lip-sync avatars · D-ID × ElevenLabs
         </span>
         <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
-          Office Hours with the{" "}
+          Office Hours at{" "}
           <span className="bg-gradient-to-r from-[#6ea8fe] via-[#c08bff] to-[#74c69d] bg-clip-text text-transparent">
-            greatest minds
-          </span>{" "}
-          in history
+            The Academy
+          </span>
         </h1>
         <p className="mt-5 max-w-xl text-balance text-base text-white/60 sm:text-lg">
-          Your exam is tomorrow. Your tutor has been dead for a hundred years.
-          Pick a genius and talk face-to-face — their face animates in real time
-          while they teach you.
+          Your exam is tomorrow. Five legendary tutors — physics, history,
+          biology, literature, and logic — are waiting. Pick one and talk
+          face-to-face while they teach you live.
         </p>
       </header>
 
@@ -32,9 +31,10 @@ export default function Home() {
             className="animate-float-in group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-1 transition duration-300 hover:-translate-y-1 hover:border-white/25"
           >
             <div className="relative overflow-hidden rounded-[20px]">
-              <div
-                className="aspect-[4/5] w-full bg-cover bg-top transition duration-500 group-hover:scale-105"
-                style={{ backgroundImage: `url(${figure.imageUrl})` }}
+              <img
+                src={figure.imageUrl}
+                alt={figure.fullName}
+                className="aspect-[4/5] w-full object-cover object-top transition duration-500 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
               <div

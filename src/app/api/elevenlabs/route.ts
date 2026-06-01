@@ -6,7 +6,7 @@ import { getFigure } from "@/lib/figures";
 const EL_API = "https://api.elevenlabs.io/v1";
 const CACHE_FILE = path.join(process.cwd(), ".eleven-agents.json");
 /** Bump when agent prompt / turn-taking config changes. */
-const AGENT_CACHE_VERSION = "v6-katex-gemini";
+const AGENT_CACHE_VERSION = "v8-gender-voices";
 
 /** Client tool the figure calls to render a visual on the on-screen whiteboard. */
 const SHOW_ON_BOARD_TOOL = {

@@ -37,6 +37,9 @@ function SessionInner({ figure }: { figure: Figure }) {
   const [hasAvatarVideo, setHasAvatarVideo] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [board, setBoard] = useState<BoardContent | null>(null);
+  const [micOverride, setMicOverride] = useState<
+    "none" | "user-muted" | "user-unmuted"
+  >("none");
   const boardSeqRef = useRef(0);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
@@ -125,6 +128,8 @@ function SessionInner({ figure }: { figure: Figure }) {
     },
     onInterruption: () => {
       didRef.current?.clearQueue();
+      setMicOverride("none");
+      conversation.setMuted(false);
       setInterruptFlash(true);
       window.setTimeout(() => setInterruptFlash(false), 2200);
     },
@@ -170,6 +175,7 @@ function SessionInner({ figure }: { figure: Figure }) {
     setErrorMsg(null);
     sessionLiveRef.current = false;
     seenMessageEventsRef.current.clear();
+    setMicOverride("none");
     setMicLevel(0);
     setHasAvatarVideo(false);
     setTranscript([]);
@@ -209,6 +215,7 @@ function SessionInner({ figure }: { figure: Figure }) {
   const end = useCallback(async () => {
     sessionLiveRef.current = false;
     seenMessageEventsRef.current.clear();
+    setMicOverride("none");
     setMicLevel(0);
     setHasAvatarVideo(false);
     try {
@@ -244,6 +251,39 @@ function SessionInner({ figure }: { figure: Figure }) {
   const micActive =
     isLive && !conversation.isMuted && (micLevel > 0.06 || conversation.isListening);
   const floor: Floor = agentSpeaking ? "agent" : userSpeaking ? "user" : "open";
+  const autoMutedForAgent =
+    isLive &&
+    agentSpeaking &&
+    conversation.isMuted &&
+    micOverride !== "user-unmuted";
+
+  useEffect(() => {
+    if (!isLive) return;
+    if (agentSpeaking) {
+      if (micOverride !== "user-unmuted") {
+        conversation.setMuted(true);
+      }
+      return;
+    }
+    if (didStatus === "ready" && micOverride !== "user-muted") {
+      conversation.setMuted(false);
+      if (micOverride === "user-unmuted") {
+        setMicOverride("none");
+      }
+    }
+  }, [agentSpeaking, didStatus, isLive, conversation, micOverride]);
+
+  const handleMicToggle = useCallback(() => {
+    const willMute = !conversation.isMuted;
+    conversation.setMuted(willMute);
+    if (willMute) {
+      setMicOverride("user-muted");
+    } else if (agentSpeaking) {
+      setMicOverride("user-unmuted");
+    } else {
+      setMicOverride("none");
+    }
+  }, [agentSpeaking, conversation]);
 
   useEffect(() => {
     if (!isLive) return;
@@ -265,12 +305,14 @@ function SessionInner({ figure }: { figure: Figure }) {
 
   const floorLabel =
     floor === "agent"
-      ? `${figure.name} is speaking`
+      ? autoMutedForAgent
+        ? `${figure.name} is speaking — mic muted`
+        : `${figure.name} is speaking`
       : floor === "user"
         ? "Your turn — speak now"
         : conversation.isMuted
           ? "Mic muted"
-          : "Listening is starting…";
+          : "Listening…";
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6">
@@ -327,11 +369,11 @@ function SessionInner({ figure }: { figure: Figure }) {
             }`}
           />
 
-          {/* Static poster only before the WebRTC stream is up */}
           {(!avatarReady || !isLive) && (
-            <div
-              className="absolute inset-0 bg-cover bg-top"
-              style={{ backgroundImage: `url(${figure.imageUrl})` }}
+            <img
+              src={figure.imageUrl}
+              alt={figure.fullName}
+              className="absolute inset-0 h-full w-full object-cover object-top"
             />
           )}
 
@@ -442,7 +484,7 @@ function SessionInner({ figure }: { figure: Figure }) {
             <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-5">
               <button
                 type="button"
-                onClick={() => conversation.setMuted(!conversation.isMuted)}
+                onClick={handleMicToggle}
                 className={`flex h-16 w-16 items-center justify-center rounded-full border-2 shadow-lg transition ${
                   conversation.isMuted
                     ? "border-red-400/60 bg-red-500/25 text-red-100"
@@ -465,7 +507,11 @@ function SessionInner({ figure }: { figure: Figure }) {
                 )}
               </button>
               <p className="text-xs text-white/50">
-                {conversation.isMuted ? "Mic muted — tap to speak" : "Tap to mute your mic"}
+                {autoMutedForAgent
+                  ? "Mic auto-muted — tap to interrupt"
+                  : conversation.isMuted
+                    ? "Mic muted — tap to speak"
+                    : "Tap to mute your mic"}
               </p>
               <div className="flex gap-3">
                 <button

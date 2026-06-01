@@ -6,6 +6,9 @@ export function formatDidError(body: unknown, status: number): string {
     if (typeof description === "string") {
       const kind =
         typeof record.kind === "string" ? record.kind : "D-ID error";
+      if (kind.includes("CelebrityDetected")) {
+        return "D-ID blocked the avatar image because it looks like a real public figure. Use a stylized illustration in public/avatars/ instead of a photo-real portrait.";
+      }
       return `${kind}: ${description}`;
     }
   }

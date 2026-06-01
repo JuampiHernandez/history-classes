@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Office Hours — Learn from history's greatest minds",
+  title: "Office Hours — The Academy",
   description:
-    "Pick a historical genius and they become your live, face-to-face tutor. Powered by D-ID avatars and ElevenLabs conversational AI.",
+    "Pick a tutor at The Academy and learn face-to-face with live lip-sync avatars. Powered by D-ID and ElevenLabs conversational AI.",
 };
 
 export default function RootLayout({
