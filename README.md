@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Office Hours — historical AI tutors
 
-## Getting Started
+Live voice tutoring with D-ID lip-sync avatars, ElevenLabs ConvAI agents, and an on-session whiteboard (KaTeX formulas + Gemini illustrations).
 
-First, run the development server:
+## Setup (manual steps)
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Environment variables
+
+Copy the example file and fill in your keys:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `ELEVENLABS_API_KEY` | Yes | Create agents + WebRTC conversation tokens |
+| `D_ID_API_KEY` | Yes | Lip-sync avatar streams |
+| `OPENAI_API_KEY` | **Dev** | Whiteboard illustrations locally (`gpt-image-1`) |
+| `AI_GATEWAY_API_KEY` or Vercel OIDC | **Production** | Whiteboard uses **Vercel AI Gateway** + `google/gemini-3.1-flash-image-preview` (uses your gateway credits) |
+| `GEMINI_API_KEY` | Optional | Direct Gemini in dev if you skip OpenAI |
+| `ELEVENLABS_LLM_MODEL` | No | Default `gemini-2.0-flash` |
+
+**Formulas** always use KaTeX (no API). **Diagrams** route by environment:
+
+- **Local `npm run dev`** → OpenAI (if `OPENAI_API_KEY` is set), else Pollinations
+- **Vercel production** (`VERCEL_ENV=production`) → AI Gateway + Gemini, else Pollinations
+
+AI Gateway is **not production-only**. You can use it locally with `vercel link` + `vercel env pull` (OIDC token) or `AI_GATEWAY_API_KEY`. This project intentionally uses **OpenAI in dev** and **Gateway + Gemini in production** so local runs do not spend gateway credits.
+
+### 3. Regenerate ElevenLabs agents (after prompt/tool changes)
+
+Agent IDs are cached in `.eleven-agents.json`. When the cache version bumps (e.g. after pulling new code), either:
+
+- **Delete** `.eleven-agents.json` and restart the dev server, or  
+- Start a session for a figure you have not used yet (new agents are created on first request).
+
+Each figure’s agent is recreated automatically on first session start after the cache is cleared.
+
+### 4. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000), pick a tutor, allow the microphone, and start a session.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. Deploy (Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+In the Vercel project:
 
-## Learn More
+1. Enable **AI Gateway** in project settings (uses your gateway balance).
+2. Set `ELEVENLABS_API_KEY` and `D_ID_API_KEY` (same as local).
+3. You do **not** need `OPENAI_API_KEY` in production — illustrations use Gateway + Gemini automatically via OIDC.
 
-To learn more about Next.js, take a look at the following resources:
+## Whiteboard behavior
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Math / formulas** → `note` field → **KaTeX** (instant).
+- **Illustrations** → `image_prompt` → **POST `/api/whiteboard`** → OpenAI (dev) or Gateway + Gemini (production), or Pollinations on failure.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Tutors call the `show_on_board` client tool during conversation; the panel appears beside the avatar on desktop.
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev    # development
+npm run build  # production build
+npm run lint   # ESLint
+```
