@@ -6,6 +6,35 @@ import {
 } from "@/lib/board-image";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * AI Gateway image generation (Imagen/Gemini) routinely takes 15-40s, which
+ * exceeds the default function cap. Without this the function is killed before
+ * responding and the whiteboard spins forever ("Drawing illustration...").
+ */
+export const maxDuration = 60;
+
+/** Leave headroom under maxDuration so the Pollinations fallback can still respond. */
+const PRIMARY_TIMEOUT_MS = 45_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Image generation timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -29,7 +58,10 @@ export async function POST(req: NextRequest) {
     let provider: BoardImageProvider;
 
     try {
-      const result = await generateBoardImage(clean);
+      const result = await withTimeout(
+        generateBoardImage(clean),
+        PRIMARY_TIMEOUT_MS,
+      );
       imageUrl = result.imageUrl;
       provider = result.provider;
     } catch (err) {
