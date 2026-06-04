@@ -2,71 +2,18 @@ import Link from "next/link";
 import { FIGURES } from "@/lib/figures";
 import {
   AcademyCrest,
-  AcademyWordmark,
   GoldButton,
   StatusPill,
   SubjectIcon,
 } from "@/components/brand";
-import { AuthNav } from "@/components/AuthNav";
-
-const NAV_LINKS = [
-  { label: "How it works", href: "#how-it-works" },
-  { label: "For schools", href: "#for-schools" },
-  { label: "Pricing", href: "#pricing" },
-];
-
-const FEATURES = [
-  {
-    title: "Voice-first tutoring",
-    body: "Speak naturally. Get real-time feedback.",
-    icon: (
-      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
-    ),
-  },
-  {
-    title: "Collaborative whiteboard",
-    body: "Solve, sketch, and build together.",
-    icon: <path d="M12 20h9M3 20h3M4 16.5 16.5 4a2.1 2.1 0 0 1 3 3L7 19.5l-4 1z" />,
-  },
-  {
-    title: "Exam tomorrow mode",
-    body: "Focused sessions. Maximum impact.",
-    icon: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
-  },
-  {
-    title: "Secure & private",
-    body: "Your conversations are encrypted.",
-    icon: (
-      <>
-        <rect x="4" y="10" width="16" height="11" rx="2" />
-        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-      </>
-    ),
-  },
-];
+import { HowItWorksSection } from "@/components/marketing/HowItWorksSection";
+import { PricingSection } from "@/components/marketing/PricingSection";
+import { SiteHeader } from "@/components/marketing/SiteHeader";
 
 export default function Home() {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-obsidian/80 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <AcademyWordmark compact />
-          <nav className="hidden items-center gap-8 text-sm text-ivory/70 md:flex">
-            {NAV_LINKS.map((l) => (
-              <a key={l.label} href={l.href} className="transition hover:text-ivory">
-                {l.label}
-              </a>
-            ))}
-            <AuthNav />
-            <Link
-              href="#tutors"
-              className="rounded-full border border-gold/50 px-5 py-2 text-sm font-semibold text-gold transition hover:bg-gold hover:text-obsidian"
-            >
-              Start preparing
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6">
         {/* Hero */}
@@ -151,32 +98,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Features */}
-        <section
-          id="how-it-works"
-          className="scroll-mt-24 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.06] sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {FEATURES.map((f) => (
-            <div key={f.title} className="flex flex-col gap-2 bg-obsidian p-6">
-              <span className="text-gold">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  {f.icon}
-                </svg>
-              </span>
-              <p className="mt-1 text-sm font-semibold text-ivory">{f.title}</p>
-              <p className="text-xs leading-relaxed text-ivory/50">{f.body}</p>
-            </div>
-          ))}
-        </section>
+        <HowItWorksSection />
+        <PricingSection />
       </main>
 
       <footer className="mx-auto mt-16 flex w-full max-w-6xl flex-col items-center gap-3 px-6 py-10 text-center">
@@ -184,7 +107,11 @@ export default function Home() {
         <p className="font-display text-sm italic text-ivory/50">
           Where legendary minds help you master what matters.
         </p>
-        <div className="flex items-center gap-4 text-xs text-ivory/30">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-ivory/30">
+          <Link href="/for-schools" className="transition hover:text-ivory/60">
+            For schools
+          </Link>
+          <span>·</span>
           <Link href="/brand" className="transition hover:text-ivory/60">
             Brand
           </Link>

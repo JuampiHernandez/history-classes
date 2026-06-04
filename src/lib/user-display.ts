@@ -12,7 +12,9 @@ export function displayName(user: User): string {
   return "Account";
 }
 
-export const CREDITS_REQUEST_EMAIL = "juampi.contact@gmail.com";
+import { ACADEMY_CONTACT_EMAIL } from "@/lib/contact";
+
+export const CREDITS_REQUEST_EMAIL = ACADEMY_CONTACT_EMAIL;
 
 export function creditsRequestMailto(user: User): string {
   const name = displayName(user);
