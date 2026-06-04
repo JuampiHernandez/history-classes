@@ -7,6 +7,7 @@ import {
   StatusPill,
   SubjectIcon,
 } from "@/components/brand";
+import { AuthNav } from "@/components/AuthNav";
 
 const NAV_LINKS = [
   { label: "How it works", href: "#how-it-works" },
@@ -56,9 +57,7 @@ export default function Home() {
                 {l.label}
               </a>
             ))}
-            <a href="#" className="transition hover:text-ivory">
-              Sign in
-            </a>
+            <AuthNav />
             <Link
               href="#tutors"
               className="rounded-full border border-gold/50 px-5 py-2 text-sm font-semibold text-gold transition hover:bg-gold hover:text-obsidian"

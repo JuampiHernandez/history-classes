@@ -4,9 +4,21 @@ import {
   pollinationsBoardImageUrl,
   type BoardImageProvider,
 } from "@/lib/board-image";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Please sign in.", code: "unauthenticated" },
+        { status: 401 },
+      );
+    }
+
     const { prompt } = (await req.json()) as { prompt?: string };
     const clean = prompt?.trim();
     if (!clean) {
