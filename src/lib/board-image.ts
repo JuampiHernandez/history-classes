@@ -94,17 +94,19 @@ async function generateBoardImageWithGatewayGemini(
 }
 
 /**
- * Vercel AI Gateway: Imagen for diagrams, Gemini multimodal as fallback.
+ * Vercel AI Gateway: fast Gemini flash image first, Imagen as a fallback.
+ * Gemini flash returns in a few seconds; Imagen 4.0 is higher quality but can
+ * take 15-40s, which previously timed out the whiteboard, so it is secondary.
  * Auth: OIDC on Vercel, or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN locally.
  */
 export async function generateBoardImageWithGateway(
   prompt: string,
 ): Promise<{ imageUrl: string; provider: "gateway-imagen" | "gateway-gemini" }> {
   try {
-    return await generateBoardImageWithGatewayImagen(prompt);
+    return await generateBoardImageWithGatewayGemini(prompt);
   } catch (err) {
-    console.warn("[whiteboard] Imagen via AI Gateway failed, trying Gemini:", err);
-    return generateBoardImageWithGatewayGemini(prompt);
+    console.warn("[whiteboard] Gemini via AI Gateway failed, trying Imagen:", err);
+    return generateBoardImageWithGatewayImagen(prompt);
   }
 }
 
