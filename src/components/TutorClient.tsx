@@ -58,6 +58,7 @@ function SessionInner({ figure }: { figure: Figure }) {
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const [elapsed, setElapsed] = useState(0);
   const [question, setQuestion] = useState("");
+  const [outOfCredits, setOutOfCredits] = useState(false);
 
   const showOnBoard = useCallback(
     (params: Record<string, unknown>) => {
@@ -245,7 +246,11 @@ function SessionInner({ figure }: { figure: Figure }) {
           body: JSON.stringify({ figureId: figure.id }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error ?? "Failed to start agent");
+        if (!res.ok) {
+          const err = new Error(data?.error ?? "Failed to start agent");
+          (err as Error & { code?: string }).code = data?.code;
+          throw err;
+        }
         lap("elevenlabs token ready");
         return data as { conversationToken: string };
       })();
@@ -278,6 +283,9 @@ function SessionInner({ figure }: { figure: Figure }) {
     } catch (err) {
       if (startSeqRef.current === startSeq) {
         sessionLiveRef.current = false;
+        setOutOfCredits(
+          (err as Error & { code?: string })?.code === "no_credits",
+        );
         setErrorMsg(err instanceof Error ? err.message : "Failed to start");
         setPhase("error");
         await didRef.current?.destroy();
@@ -567,15 +575,26 @@ function SessionInner({ figure }: { figure: Figure }) {
               {phase === "error" && (
                 <div className="flex max-w-md flex-col items-center gap-3 pb-6">
                   <p className="font-display text-lg font-medium text-red-300">
-                    Couldn&apos;t start the session
+                    {outOfCredits
+                      ? "You're out of free conversations"
+                      : "Couldn't start the session"}
                   </p>
                   <p className="text-xs text-ivory/60">{errorMsg}</p>
-                  <button
-                    onClick={start}
-                    className="rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-obsidian"
-                  >
-                    Try again
-                  </button>
+                  {outOfCredits ? (
+                    <Link
+                      href="/"
+                      className="rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-obsidian"
+                    >
+                      Back to tutors
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={start}
+                      className="rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-obsidian"
+                    >
+                      Try again
+                    </button>
+                  )}
                 </div>
               )}
             </div>

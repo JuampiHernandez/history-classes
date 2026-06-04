@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { getFigure } from "@/lib/figures";
+import { createClient } from "@/lib/supabase/server";
 
 const EL_API = "https://api.elevenlabs.io/v1";
 const CACHE_FILE = path.join(
@@ -157,9 +158,47 @@ async function getConversationToken(agentId: string): Promise<string> {
 export async function POST(req: NextRequest) {
   try {
     const { figureId } = (await req.json()) as { figureId: string };
+
+    // 1) Require a signed-in user — no anonymous access to paid APIs.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Please sign in to start a session.", code: "unauthenticated" },
+        { status: 401 },
+      );
+    }
+
+    // 2) Atomically consume one free conversation credit. The RPC is scoped to
+    //    auth.uid() server-side, so a user can only spend their own credits.
+    const { data, error } = await supabase.rpc("consume_conversation_credit");
+    if (error) {
+      return NextResponse.json(
+        { error: "Could not verify your conversation credits." },
+        { status: 500 },
+      );
+    }
+    const result = (data as { allowed: boolean; remaining: number }[] | null)?.[0];
+    if (!result?.allowed) {
+      return NextResponse.json(
+        {
+          error: "You've used all your free conversations.",
+          code: "no_credits",
+        },
+        { status: 402 },
+      );
+    }
+
+    // 3) Credit spent — provision the agent + conversation token.
     const agentId = await ensureAgent(figureId);
     const conversationToken = await getConversationToken(agentId);
-    return NextResponse.json({ agentId, conversationToken });
+    return NextResponse.json({
+      agentId,
+      conversationToken,
+      remaining: result.remaining,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

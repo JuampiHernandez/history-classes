@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { didAuthHeader } from "@/lib/did-auth";
 import { didLog, formatDidError } from "@/lib/did-errors";
 import { uploadFigureAvatar } from "@/lib/did-upload";
+import { createClient } from "@/lib/supabase/server";
 
 const DID_API = "https://api.d-id.com";
 const DID_OUTPUT_RESOLUTION = 1280;
@@ -73,6 +74,33 @@ export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
     action = (payload as { action: string }).action;
+
+    // All avatar actions require a signed-in user (no anonymous D-ID usage).
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Please sign in to start a session.", code: "unauthenticated" },
+        { status: 401 },
+      );
+    }
+
+    // Creating a new avatar stream is the expensive entry point — only allow it
+    // when the user still has at least one free conversation. (The credit is
+    // actually spent by /api/elevenlabs; this just blocks direct abuse.)
+    if (action === "create") {
+      const { data } = await supabase.rpc("get_my_usage");
+      const remaining =
+        (data as { remaining: number }[] | null)?.[0]?.remaining ?? 0;
+      if (remaining <= 0) {
+        return NextResponse.json(
+          { error: "You've used all your free conversations.", code: "no_credits" },
+          { status: 402 },
+        );
+      }
+    }
 
     switch (action) {
       case "create": {

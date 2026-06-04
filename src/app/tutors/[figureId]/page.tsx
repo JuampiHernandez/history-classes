@@ -7,6 +7,7 @@ import {
   StatusPill,
   SubjectIcon,
 } from "@/components/brand";
+import { AuthNav } from "@/components/AuthNav";
 
 export function generateStaticParams() {
   return FIGURES.map((f) => ({ figureId: f.id }));
@@ -72,12 +73,7 @@ export default async function TutorProfile({
           <AcademyWordmark compact />
           <div className="flex items-center gap-4">
             <StatusPill label="Live lip-sync sessions" tone="green" className="hidden sm:inline-flex" />
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-sm font-semibold"
-              style={{ color: figure.accent }}
-            >
-              {figure.fullName.charAt(0)}
-            </span>
+            <AuthNav />
           </div>
         </div>
       </header>
